@@ -1,0 +1,11 @@
+*pycache*
+
+# experiment logs
+experiments_results/RL_phase/*
+experiments_results/LLM_phase/*
+
+# old and test scripts
+*sandbox*
+test_scripts*
+old_scripts*
+llm_performance.txt
