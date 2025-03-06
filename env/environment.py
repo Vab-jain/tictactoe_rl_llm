@@ -9,13 +9,13 @@ class RandomAgent:
     def __init__(self, one_hot_state = False):
         self.one_hot_state = one_hot_state
         
-    def select_action(self, state):
+    def select_action(self, state): # the state here is the board.flatten() returned from _get_obs();
         if not self.one_hot_state:
             valid_actions = np.argwhere(state == 0).flatten()
             return np.random.choice(valid_actions)
         else:
             # TODO: implement one-hot state action selection for RandomAgent
-            return None
+            raise Exception("One-hot-state Random Action not implemented")
 
 
 

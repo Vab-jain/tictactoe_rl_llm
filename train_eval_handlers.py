@@ -1,6 +1,6 @@
 # main.py
 
-import numpy as np
+import torch
 import random
 import time
 import os
@@ -28,6 +28,7 @@ def train_agent(experiment_config):
     # train
     train_num_episodes = experiment_config['train_num_episodes']
     train_llm_use_probability = experiment_config['train_llm_use_probability']      # probability of using LLM suggestion while training
+    validation_episodes = experiment_config.get('validation_episodes', [100,500,800,1000])
     # llm params
     save_llm_cache = experiment_config.get('save_llm_cache', False)
     llm_load_path = experiment_config.get('llm_load_path', None)
@@ -45,6 +46,8 @@ def train_agent(experiment_config):
     # Create directories to save results
     results_dir = os.path.join('experiments_results/RL_phase', experiment_name)
     os.makedirs(results_dir, exist_ok=True)
+    saved_models = os.path.join(results_dir, 'saved_models') 
+    os.makedirs(saved_models, exist_ok=True)
 
     # Initialize environment
     env = TicTacToeEnv()
@@ -131,7 +134,11 @@ def train_agent(experiment_config):
             wins = sum(win_history[-100:])
             losses = sum(loss_history[-100:])
             draws = sum(draw_history[-100:])
-            print(f"Experiment {experiment_name} - Episode {episode}, Win: {wins}, Loss: {losses}, Draw: {draws}")
+            print(f"(Training) Experiment {experiment_name} - Episode {episode}, Win: {wins}, Loss: {losses}, Draw: {draws}")
+            if validation_episodes is not None and episode in validation_episodes:
+                if agent_policy == 'dqn':
+                    agent_filepath = os.path.join(results_dir,'saved_models', f'{episode}_tic_tac_toe_agent.pth')
+                    agent.save(agent_filepath)
             # store sample efficiency values
             log_sample_efficiency_win.append(wins)
             log_sample_efficiency_loss.append(losses)
@@ -140,7 +147,7 @@ def train_agent(experiment_config):
             if wins>best_wins:
                 best_wins = wins
                 if agent_policy == 'dqn':
-                    agent_filepath = os.path.join(results_dir, 'best_tic_tac_toe_agent.pth')
+                    agent_filepath = os.path.join(results_dir,'saved_models', 'best_tic_tac_toe_agent.pth')
                     agent.save(agent_filepath)
                 
             
@@ -150,7 +157,7 @@ def train_agent(experiment_config):
 
     # Save the agent
     if agent_policy == 'dqn':
-        agent_filepath = os.path.join(results_dir, 'final_tic_tac_toe_agent.pth')
+        agent_filepath = os.path.join(results_dir,'saved_models', 'final_tic_tac_toe_agent.pth')
         agent.save(agent_filepath)
 
     # Plot training results without displaying, save the plot
@@ -232,9 +239,9 @@ def eval_agent(experiment_config):
     # load the agent
     if agent_policy == 'dqn':
         if eval_agent_load_name:
-            agent_filepath = os.path.join('experiments_results/RL_phase', eval_agent_load_name, 'best_tic_tac_toe_agent.pth')
+            agent_filepath = os.path.join('experiments_results/RL_phase', eval_agent_load_name,'saved_models', 'best_tic_tac_toe_agent.pth')
         else:
-            agent_filepath = os.path.join(results_dir, 'best_tic_tac_toe_agent.pth')
+            agent_filepath = os.path.join(results_dir,'saved_models', 'best_tic_tac_toe_agent.pth')
         agent = DQNAgent(
                 state_size=env.observation_space.shape[0], 
                 action_size=env.action_space.n.item(), 
