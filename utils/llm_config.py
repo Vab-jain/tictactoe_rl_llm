@@ -24,3 +24,16 @@ if config.dspy_signature=='v1':
         context = dspy.InputField(desc="task description")
         current_state = dspy.InputField(desc="current state represented as an array of lenght 9, starting from 0 to 8.")
         answer: int = dspy.OutputField(desc="an integer describing next action given current state")
+
+elif config.dspy_signature=='v2':
+    class GenerateAction(dspy.Signature):
+        context = dspy.InputField(desc="task description")
+        current_state = dspy.InputField(desc="current state represented as an array of lenght 9, starting from 0 to 8.")
+        available_actions = dspy.InputField(desc="list of empty cells avaiable to play")
+        answer: int = dspy.OutputField(desc="an integer describing next action given current state")
+
+elif config.dspy_signature=='v3':
+    class GenerateAction(dspy.Signature):
+        current_state = dspy.InputField(desc="current state represented as an array of lenght 9, starting from 0 to 8.")
+        available_actions = dspy.InputField(desc="list of empty cells avaiable to play")
+        answer: int = dspy.OutputField(desc="an integer describing next action given current state")

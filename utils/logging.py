@@ -15,8 +15,8 @@ def log_experiment(experiment_config, train_info=None, eval_info=None):
     llm_use_probability = experiment_config['train_llm_use_probability']
 
     # LLM Parameters
-    save_llm_cache = experiment_config.get('save_llm_cache', False)
-    llm_load_path = experiment_config.get('llm_load_path')
+    save_llm_cache = experiment_config.get('save_llm_cache', True)
+    llm_load_path = experiment_config.get('llm_load_path', None)
     llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
 
     # Learning Parameters
@@ -82,7 +82,7 @@ def log_experiment(experiment_config, train_info=None, eval_info=None):
         f.write(f"LLM Use Probability (Training): {llm_use_probability}\n")
         f.write("Training Time: {:.2f} seconds\n".format(training_time))
         
-        f.write("Evaluation\n")
+        f.write("\nEvaluation\n")
         f.write('-------------------\n')
         if eval_agent_load_name:
             f.write(f"Agent Evaluation Policy: {eval_agent_load_name}")

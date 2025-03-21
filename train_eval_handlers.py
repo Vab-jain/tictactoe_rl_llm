@@ -25,14 +25,18 @@ def train_agent(experiment_config):
     agent_plays = experiment_config.get('agent_plays', 'random')    # agent plays {first_player, second_player, random}
     agent_policy = experiment_config.get('agent_policy', 'dqn')
     random_suggestion = experiment_config.get('random_suggestion', False)
+    env_policy = experiment_config.get('env_policy', None)
     # train
     train_num_episodes = experiment_config['train_num_episodes']
     train_llm_use_probability = experiment_config['train_llm_use_probability']      # probability of using LLM suggestion while training
     validation_episodes = experiment_config.get('validation_episodes', [100,500,800,1000])
     # llm params
-    save_llm_cache = experiment_config.get('save_llm_cache', False)
+    save_llm_cache = experiment_config.get('save_llm_cache', True)
     llm_load_path = experiment_config.get('llm_load_path', None)
     llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
+    use_GROQ = experiment_config.get('use_GROQ', False)
+    llm_cache_path = experiment_config.get('llm_cache_path', None)
+    
     # learning params
     batch_size = experiment_config.get('batch_size', 32)
     learning_rate = experiment_config.get('learning_rate', 1e-4)
@@ -50,13 +54,30 @@ def train_agent(experiment_config):
     os.makedirs(saved_models, exist_ok=True)
 
     # Initialize environment
-    env = TicTacToeEnv()
+    if env_policy=='dqn':
+    # load the agent
+        env_agent_filepath = os.path.join('experiments_results/RL_phase', 'EA-DQN3','saved_models', 'best_tic_tac_toe_agent.pth')
+        env_agent = DQNAgent(
+                state_size=9, 
+                action_size=9, 
+                batch_size=batch_size, 
+                learning_rate=learning_rate, 
+                gamma=gamma, 
+                target_update=target_update
+            )
+        env_agent.load(filepath=env_agent_filepath)
+        env_agent.eval()
+        env = TicTacToeEnv(env_policy=env_agent)
+    else:
+        env = TicTacToeEnv()
     if train_llm_use_probability:
         env = LLMSuggestionWrapper(env, 
                                    train_llm_use_probability,
                                    llm_model_id=llm_model_id, 
                                    load_llm_path=llm_load_path,
-                                   cache_llm=save_llm_cache)
+                                   cache_llm=save_llm_cache,
+                                   GROQ=use_GROQ,
+                                   llm_cache_path=llm_cache_path)
     elif random_suggestion:
         env = RandomSuggestionWrapper(env)       
     # Oracle
@@ -193,14 +214,18 @@ def eval_agent(experiment_config):
     random_suggestion = experiment_config.get('random_suggestion', False)
     agent_plays = experiment_config.get('agent_plays', 'random')    # agent plays {first_player, second_player, random}
     agent_policy = experiment_config.get('agent_policy', 'dqn')
+    env_policy = experiment_config.get('env_policy', None)
     # eval
     eval_num_games = experiment_config['eval_num_games']
     train_llm_use_probability = experiment_config['train_llm_use_probability']      # probability of using LLM suggestion while training
     eval_llm_use_probability = experiment_config.get('eval_llm_use_probability', train_llm_use_probability)
     eval_agent_load_name = experiment_config.get('eval_agent_load_name', None)
     # llm params
-    llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
+    save_llm_cache = experiment_config.get('save_llm_cache', True)
     llm_load_path = experiment_config.get('llm_load_path', None)
+    llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
+    use_GROQ = experiment_config.get('use_GROQ', False)
+    llm_cache_path = experiment_config.get('llm_cache_path', None)
     # learning params
     batch_size = experiment_config.get('batch_size', 32)
     learning_rate = experiment_config.get('learning_rate', 1e-4)
@@ -221,14 +246,31 @@ def eval_agent(experiment_config):
         print(f"Experiment '{experiment_name}' does not exist.")
         return
     
-    # Initialize environment
-    env = TicTacToeEnv()
+    if env_policy=='dqn':
+    # load the agent
+        env_agent_filepath = os.path.join('experiments_results/RL_phase', 'EA-DQN3','saved_models', 'best_tic_tac_toe_agent.pth')
+        env_agent = DQNAgent(
+                state_size=9, 
+                action_size=9, 
+                batch_size=batch_size, 
+                learning_rate=learning_rate, 
+                gamma=gamma, 
+                target_update=target_update
+            )
+        env_agent.load(filepath=env_agent_filepath)
+        env_agent.eval()
+        env = TicTacToeEnv(env_policy=env_agent)
+    else:
+        env = TicTacToeEnv()
     if train_llm_use_probability:
         env = LLMSuggestionWrapper(env, 
                                    eval_llm_use_probability,
                                    llm_model_id=llm_model_id,
                                    load_llm_path=llm_load_path,
-                                   cache_llm=False)
+                                   cache_llm=save_llm_cache,
+                                   GROQ=use_GROQ,
+                                   llm_cache_path=llm_cache_path
+                                   )
     elif random_suggestion:
         env = RandomSuggestionWrapper(env)
         

@@ -3,42 +3,51 @@ from gymnasium import spaces
 import numpy as np
 import dspy
 from utils import GenerateAction
+import config
+import json
+import time
 
 
-def configure_llm(llm_model_id='ollama_chat/llama3.2:3b', cache=False):
-    lm = dspy.LM(llm_model_id, api_base='http://localhost:11434', cache=cache)
+def configure_llm(llm_model_id='ollama_chat/llama3.2:3b', cache=False, GROQ=False):
+    if GROQ:
+        lm = dspy.LM(llm_model_id, api_base='https://api.groq.com/openai/v1', api_key=config.GROQ_API_KEY)
+    else:
+        lm = dspy.LM(llm_model_id, api_base='http://localhost:11434', cache=cache)
     dspy.configure(lm=lm)
 
 # lm = dspy.LM('ollama_chat/llama3.2:3b', api_base='http://localhost:11434')
 # dspy.configure(lm=lm)
 
 class LLMSuggestionWrapper(Wrapper):
-    def __init__(self, env, llm_use_probability=0, llm_model_id='ollama_chat/llama3.2:3b', load_llm_path=None, cache_llm = False):
+    def __init__(self, env, 
+                 llm_use_probability=0, 
+                 llm_model_id='ollama_chat/llama3.2:3b', 
+                 load_llm_path=None, 
+                 cache_llm = False, 
+                 GROQ=False, 
+                 llm_cache_path=None):
         super().__init__(env)
         
         # extend observation space        
         self.observation_space = spaces.Box(low=-1, high=1, shape=(10,), dtype=np.int32)
 
         # setup LLM
-        configure_llm(llm_model_id, cache_llm)
-        self.llm_agent = dspy.ChainOfThought(GenerateAction)
+        configure_llm(llm_model_id, cache_llm, GROQ)
+        self.llm_agent = dspy.Predict(GenerateAction)
+        # self.llm_agent = dspy.ChainOfThought(GenerateAction)
         
         if load_llm_path:
             self.llm_agent.load(path=load_llm_path)
+        
+        self.GROQ = GROQ
+        self.llm_cache_dict = {}
+        self.use_llm_cache = True if llm_cache_path is not None else False
+        self.llm_cache_path = llm_cache_path
+        if self.llm_cache_path:
+            with open(llm_cache_path, 'r') as f:
+                self.llm_cache_dict = json.load(f)
             
-        
-        # context sample
-        ### for 1d board representation (1,-1,0)
-        # self.context_sample = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. The board is represented as an array of lenght 9, starting from 0 to 8. Each element represents a cell of the tictactoe board. '0' indicates an empty cell, '1' indicates a cross, and '-1' indicates a circle."
-        ### for 1d board representation (X,O,_)
-        # self.context_sample = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. The board is represented as an array of lenght 9, starting from 0 to 8. Each element represents a cell of the tictactoe board."
-        ### for 2d board representation (1,-1,0)
-        # self.context_sample = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. The board is represented as a (3x3) array, with each cell being represented as an integer starting from 0 to 8. '0' indicates an empty cell, '1' indicates a cross, and '-1' indicates a circle."
-        ### for 2d board representation (X,O,_)
-        # self.context_sample = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. The board is represented as an array of lenght 9, starting from 0 to 8. Each element represents a cell of the tictactoe board."
-        
-        ### compatible with new GenerateAction version
-        self.context_sample = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. '0' indicates an empty cell, '1' indicates a cross, and '-1' indicates a circle."
+        self.context_sample = config.task_decription
         
         self.llm_use_prob = llm_use_probability
 
@@ -65,41 +74,54 @@ class LLMSuggestionWrapper(Wrapper):
         return self.env.get_winner()
     
     def _get_llm_suggestion(self, state):
-        board_str, _ = self._get_board_representation(state.reshape(3, 3))
-        response = self.llm_agent(context=self.context_sample, current_state=board_str)
-        return int(response.answer)
+        # first check if the suggestion is available in the LLM cache
+        if self.use_llm_cache:
+            action = self.llm_cache_dict.get(json.dumps(state.tolist()), None)
+            if action:
+                return action
+        # if llm suggestion not found in LLM cache, call LLM
+        board_str, available_actions = self._get_board_representation(state.reshape(3, 3))
+        if config.dspy_signature=='v1':
+            response = self.llm_agent(context=self.context_sample, current_state=board_str)
+        elif config.dspy_signature=='v2':
+            response = self.llm_agent(context=self.context_sample, current_state=board_str, available_actions=available_actions)
+        elif config.dspy_signature=='v3':
+            response = self.llm_agent(current_state=board_str, available_actions=available_actions)
+        if self.GROQ:
+            time.sleep(5)
+        action = int(response.answer)
+        if self.use_llm_cache:
+            self._save_state_action_pair(state.tolist(), action)
+        return action
+    
+    def _save_state_action_pair(self, state, action):
+        state_key = json.dumps(state)
+        self.llm_cache_dict[state_key] = int(action)  # Convert state to a tuple for hashability
+        with open(self.llm_cache_path, 'w') as f:
+            json.dump(self.llm_cache_dict, f, indent=4)
     
     def _get_board_representation(self, board):
         # Generate a prompt for the LLM based on the board state
-        symbols = {1: '1', -1: '-1', 0: '0'}
-        # symbols = {1: 'X', -1: 'O', 0: '_'}
+        if config.cross_representation=='1/-1':
+            symbols = {1: '1', -1: '-1', 0: '0'}
+        elif config.cross_representation=='X/O':
+            symbols = {1: 'X', -1: 'O', 0: '_'}
         available_actions = ''
 
         """
         1d board representation 
         [0,0,0,0,1,0,0,0,0]
         
-        No available actions
-        """
-        # board_str = '' 
-        # for i in range(3): 
-        #     row = ' '.join([str(symbols[board[i, j]]) for j in range(3)]) 
-        #     board_str += row + ' '
-        # available_actions = None
-        
-        """
-        1d board representation 
-        [0,0,0,0,1,0,0,0,0]
-        
         with Available actions
         """
-        board_str = '' 
-        for i in range(3): 
-            row = ' '.join([str(symbols[board[i, j]]) for j in range(3)]) 
-            board_str += row + ' '
-            for j in range(3):
-                if board[i,j]==0:
-                    available_actions += f" {i*3+j}"
+        if config.board_representation=='1D':
+            board_str = '' 
+            for i in range(3): 
+                row = ' '.join([str(symbols[board[i, j]]) for j in range(3)]) 
+                board_str += row + ' '
+                for j in range(3):
+                    if board[i,j]==0:
+                        available_actions += f" {i*3+j}"
         
         """
         2d board representation 
@@ -107,20 +129,19 @@ class LLMSuggestionWrapper(Wrapper):
         
         with Available actions
         """
-        # board_str = '' 
-        # for i in range(3): 
-        #     row = ' '.join([str(symbols[board[i, j]]) for j in range(3)]) 
-        #     board_str += '[' + row + '], '
-        #     for j in range(3):
-        #         if board[i,j]==0:
-        #             available_actions += f" {i*3+j}"
+        if config.board_representation=='2D':
+            board_str = '' 
+            for i in range(3): 
+                row = ' '.join([str(symbols[board[i, j]]) for j in range(3)]) 
+                board_str += '[' + row + '], '
+                for j in range(3):
+                    if board[i,j]==0:
+                        available_actions += f" {i*3+j}"
         
         return board_str, available_actions
     
     
     
-    
-
 class RandomSuggestionWrapper(Wrapper):
     def __init__(self, env):
         super().__init__(env)
