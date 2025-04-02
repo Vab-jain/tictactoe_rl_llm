@@ -15,8 +15,6 @@ def configure_llm(llm_model_id='ollama_chat/llama3.2:3b', cache=False, GROQ=Fals
         lm = dspy.LM(llm_model_id, api_base='http://localhost:11434', cache=cache)
     dspy.configure(lm=lm)
 
-# lm = dspy.LM('ollama_chat/llama3.2:3b', api_base='http://localhost:11434')
-# dspy.configure(lm=lm)
 
 class LLMSuggestionWrapper(Wrapper):
     def __init__(self, env, 
@@ -25,16 +23,24 @@ class LLMSuggestionWrapper(Wrapper):
                  load_llm_path=None, 
                  cache_llm = False, 
                  GROQ=False, 
-                 llm_cache_path=None):
+                 llm_cache_path=None,
+                 one_hot_suggestion=False):
         super().__init__(env)
         
-        # extend observation space        
-        self.observation_space = spaces.Box(low=-1, high=1, shape=(10,), dtype=np.int32)
+        self.one_hot_suggestion = one_hot_suggestion
+        
+        # extend observation space 
+        if self.one_hot_suggestion:
+            self.observation_space = spaces.Box(low=-1, high=1, shape=(18,), dtype=np.int32)
+        else:       
+            self.observation_space = spaces.Box(low=-1, high=1, shape=(10,), dtype=np.int32)
 
         # setup LLM
         configure_llm(llm_model_id, cache_llm, GROQ)
-        self.llm_agent = dspy.Predict(GenerateAction)
-        # self.llm_agent = dspy.ChainOfThought(GenerateAction)
+        if config.prompting_method == 'ZS':
+            self.llm_agent = dspy.Predict(GenerateAction)
+        elif config.prompting_method == 'CoT':
+            self.llm_agent = dspy.ChainOfThought(GenerateAction)
         
         if load_llm_path:
             self.llm_agent.load(path=load_llm_path)
@@ -55,19 +61,32 @@ class LLMSuggestionWrapper(Wrapper):
     def step(self, action):
         obs, reward, done = self.env.step(action)
         # add LLM suggstion to the observation
-        llm_suggestion = -1     # LLM suggestion is -1 if no suggestion is made
+        if self.one_hot_suggestion:
+            llm_suggestion = np.zeros(9, dtype=np.int32)
+        else:
+            llm_suggestion = -1     # LLM suggestion is -1 if no suggestion is made
         if self.llm_use_prob > np.random.random():
             llm_suggestion = self._get_llm_suggestion(obs)
-        obs = np.concatenate((obs, [llm_suggestion]))    
+        if isinstance(llm_suggestion, int):
+            obs = np.concatenate((obs, [llm_suggestion])) 
+        else:
+            obs = np.concatenate((obs, llm_suggestion)) 
         return obs, reward, done
     
     def reset(self, first_player=1):
         obs = self.env.reset(first_player)
         # add LLM suggstion to the observation
-        llm_suggestion = -1     # LLM suggestion is -1 if no suggestion is made
+        if self.one_hot_suggestion:
+            llm_suggestion = np.zeros(9, dtype=np.int32)
+        else:
+            llm_suggestion = -1     # LLM suggestion is -1 if no suggestion is made
         if self.llm_use_prob > np.random.random():
             llm_suggestion = self._get_llm_suggestion(obs)
-        obs = np.concatenate((obs, [llm_suggestion])) 
+        
+        if isinstance(llm_suggestion, int):
+            obs = np.concatenate((obs, [llm_suggestion])) 
+        else:
+            obs = np.concatenate((obs, llm_suggestion)) 
         return obs
     
     def get_winner(self):
@@ -76,27 +95,42 @@ class LLMSuggestionWrapper(Wrapper):
     def _get_llm_suggestion(self, state):
         # first check if the suggestion is available in the LLM cache
         if self.use_llm_cache:
-            action = self.llm_cache_dict.get(json.dumps(state.tolist()), None)
-            if action:
-                return action
+            if np.random.random() < 0.5:    # use cache with 50% probability; to avoid keep using bad suggestions
+                action = self.llm_cache_dict.get(json.dumps(state.tolist()), None)
+                if action:
+                    if self.one_hot_suggestion:
+                        one_hot_action = np.zeros(9, dtype=np.int32)
+                        one_hot_action[action] = 1
+                        return one_hot_action
+                    else:
+                        return action
         # if llm suggestion not found in LLM cache, call LLM
         board_str, available_actions = self._get_board_representation(state.reshape(3, 3))
+        
         if config.dspy_signature=='v1':
             response = self.llm_agent(context=self.context_sample, current_state=board_str)
         elif config.dspy_signature=='v2':
             response = self.llm_agent(context=self.context_sample, current_state=board_str, available_actions=available_actions)
         elif config.dspy_signature=='v3':
             response = self.llm_agent(current_state=board_str, available_actions=available_actions)
+        
         if self.GROQ:
             time.sleep(5)
         action = int(response.answer)
         if self.use_llm_cache:
             self._save_state_action_pair(state.tolist(), action)
-        return action
+        
+        # check if the suggestion-required to be one-hot encoded 
+        if self.one_hot_suggestion:
+            one_hot_action = np.zeros(9, dtype=np.int32)
+            one_hot_action[action] = 1
+            return one_hot_action
+        else:
+            return action
     
     def _save_state_action_pair(self, state, action):
         state_key = json.dumps(state)
-        self.llm_cache_dict[state_key] = int(action)  # Convert state to a tuple for hashability
+        self.llm_cache_dict[state_key] = action 
         with open(self.llm_cache_path, 'w') as f:
             json.dump(self.llm_cache_dict, f, indent=4)
     
