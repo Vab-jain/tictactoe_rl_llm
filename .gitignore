@@ -6,6 +6,4 @@ experiments_results/LLM_phase/*
 
 # old and test scripts
 *sandbox*
-test_scripts*
 old_scripts*
-llm_performance.txt
