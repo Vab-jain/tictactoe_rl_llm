@@ -26,22 +26,22 @@ def train_agent(experiment_config):
     agent_policy = experiment_config.get('agent_policy', 'dqn')
     random_suggestion = experiment_config.get('random_suggestion', False)
     env_policy = experiment_config.get('env_policy', None)
-    # train
-    train_num_episodes = experiment_config['train_num_episodes']
-    train_llm_use_probability = experiment_config['train_llm_use_probability']      # probability of using LLM suggestion while training
-    validation_episodes = experiment_config.get('validation_episodes', [100,500,800,1000])
     # llm params
     save_llm_cache = experiment_config.get('save_llm_cache', True)
     llm_load_path = experiment_config.get('llm_load_path', None)
     llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
     use_GROQ = experiment_config.get('use_GROQ', False)
     llm_cache_path = experiment_config.get('llm_cache_path', None)
-    
+    suggestion_one_hot = experiment_config.get('suggestion_one_hot', False)
+    # train
+    train_num_episodes = experiment_config['train_num_episodes']
+    train_llm_use_probability = experiment_config['train_llm_use_probability']      # probability of using LLM suggestion while training
+    validation_episodes = experiment_config.get('validation_episodes', [i for i in range(100, 1000, 100)])
     # learning params
     batch_size = experiment_config.get('batch_size', 32)
     learning_rate = experiment_config.get('learning_rate', 1e-4)
-    gamma = experiment_config.get('gamma', 0.99)
-    target_update = experiment_config.get('target_update', 30)      # number of steps after which update the target network
+    gamma = experiment_config.get('gamma', 1)
+    target_update = experiment_config.get('target_update', 100)      # number of steps after which update the target network
     
 
     # Set random seeds
@@ -55,8 +55,8 @@ def train_agent(experiment_config):
 
     # Initialize environment
     if env_policy=='dqn':
-    # load the agent
-        env_agent_filepath = os.path.join('experiments_results/RL_phase', 'EA-DQN3','saved_models', 'best_tic_tac_toe_agent.pth')
+        # load the environment agent
+        env_agent_filepath = os.path.join('experiments_results/RL_phase', 'EA-DQN42','saved_models', 'best_tic_tac_toe_agent.pth')
         env_agent = DQNAgent(
                 state_size=9, 
                 action_size=9, 
@@ -77,7 +77,9 @@ def train_agent(experiment_config):
                                    load_llm_path=llm_load_path,
                                    cache_llm=save_llm_cache,
                                    GROQ=use_GROQ,
-                                   llm_cache_path=llm_cache_path)
+                                   llm_cache_path=llm_cache_path,
+                                   one_hot_suggestion=suggestion_one_hot
+                                   )
     elif random_suggestion:
         env = RandomSuggestionWrapper(env)       
     # Oracle
@@ -226,11 +228,12 @@ def eval_agent(experiment_config):
     llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
     use_GROQ = experiment_config.get('use_GROQ', False)
     llm_cache_path = experiment_config.get('llm_cache_path', None)
+    suggestion_one_hot = experiment_config.get('suggestion_one_hot', False)
     # learning params
     batch_size = experiment_config.get('batch_size', 32)
     learning_rate = experiment_config.get('learning_rate', 1e-4)
-    gamma = experiment_config.get('gamma', 0.99)
-    target_update = experiment_config.get('target_update', 10)
+    gamma = experiment_config.get('gamma', 1)
+    target_update = experiment_config.get('target_update', 100)
     
     
     # Record evaluation time
@@ -248,7 +251,7 @@ def eval_agent(experiment_config):
     
     if env_policy=='dqn':
     # load the agent
-        env_agent_filepath = os.path.join('experiments_results/RL_phase', 'EA-DQN3','saved_models', 'best_tic_tac_toe_agent.pth')
+        env_agent_filepath = os.path.join('experiments_results/RL_phase', 'EA-DQN42','saved_models', 'best_tic_tac_toe_agent.pth')
         env_agent = DQNAgent(
                 state_size=9, 
                 action_size=9, 
@@ -269,8 +272,8 @@ def eval_agent(experiment_config):
                                    load_llm_path=llm_load_path,
                                    cache_llm=save_llm_cache,
                                    GROQ=use_GROQ,
-                                   llm_cache_path=llm_cache_path
-                                   )
+                                   llm_cache_path=llm_cache_path,
+                                   one_hot_suggestion=suggestion_one_hot)
     elif random_suggestion:
         env = RandomSuggestionWrapper(env)
         
