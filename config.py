@@ -2,23 +2,26 @@
 '''
 Global configurations for all experiments
 '''
-global board_representation, cross_representation, dspy_signature, validation_metric, task_decription
+global board_representation, cross_representation, dspy_signature, validation_metric, task_decription, prompting_method
 
 # accessed in: prompt_tune.py, wrappers.py
-# board_representation = '1D'      
-board_representation = '2D'
+board_representation = '1D'      
+# board_representation = '2D'
 
 # accessed in: prompt_tune.py, wrappers.py
-# cross_representation = '1/-1'
-cross_representation = 'X/O'
+cross_representation = '1/-1'
+# cross_representation = 'X/O'
 
 # defined in llm_config.py
 # accessed in: prompt_tune.py, wrappers.py
-dspy_signature = 'v3'
+dspy_signature = 'v2'
 
 # defined in dspy_metric.py
 # accessed in: prompt_tune.py
 validation_metric = 'v2'
+
+# accessed in wrapper.py
+prompting_method = 'CoT' # [ZS, CoT]
 
 # context sample
 # ### for 1d board representation (1,-1,0)
@@ -72,7 +75,7 @@ task_prompts = {
 task_decription = task_prompts['td_og']
           
 
-def update_config(board_representation, cross_representation, task_id):
+def update_config(board_representation=None, cross_representation=None, task_id=None, prompting_method=None):
     '''
     Update the global configuration variables
     '''
@@ -82,6 +85,8 @@ def update_config(board_representation, cross_representation, task_id):
         globals()['cross_representation'] = cross_representation
     if task_id is not None:
         globals()['task_decription'] = task_prompts[task_id]
+    if prompting_method is not None:
+        globals()['prompting_method'] = prompting_method
 
 
 GROQ_API_KEY = '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'
