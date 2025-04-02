@@ -41,7 +41,7 @@ class DQNAgent:
         
         self.epsilon_start = 1.0
         self.epsilon_end = 0.1
-        self.epsilon_decay = 1000
+        self.epsilon_decay = 500
         self.epsilon = self.epsilon_start
         
     def update_target_network(self):
