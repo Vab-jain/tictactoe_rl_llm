@@ -18,6 +18,9 @@ def log_experiment(experiment_config, train_info=None, eval_info=None):
     save_llm_cache = experiment_config.get('save_llm_cache', True)
     llm_load_path = experiment_config.get('llm_load_path', None)
     llm_model_id = experiment_config.get('llm_model_id', 'ollama_chat/llama3.2:3b')
+    use_GROQ = experiment_config.get('use_GROQ', False)
+    llm_cache_path = experiment_config.get('llm_cache_path', None)
+    suggestion_one_hot = experiment_config.get('suggestion_one_hot', False)
 
     # Learning Parameters
     batch_size = experiment_config.get('batch_size', 32)
@@ -61,13 +64,18 @@ def log_experiment(experiment_config, train_info=None, eval_info=None):
         f.write(f"Board Representation: {config.board_representation}\n")
         f.write(f"Cross Representation: {config.cross_representation}\n")
         f.write(f"DSPY Signature: {config.dspy_signature}\n")
+        f.write(f"Prompting Method: {config.prompting_method}\n")
+        f.write(f"Task Description: {experiment_config['task_description']}\n")
         
 
         f.write("LLM Config\n")
         f.write('-------------------\n')
         f.write(f"Save LLM Cache: {save_llm_cache}\n")
         f.write(f"LLM Load Path: {llm_load_path}\n")
-        f.write(f"LLM Model ID: {llm_model_id}\n\n")
+        f.write(f"LLM Model ID: {llm_model_id}\n")
+        f.write(f"Use GROQ: {use_GROQ}\n")
+        f.write(f"LLM Cache Path: {llm_cache_path}\n")
+        f.write(f"Suggestion One Hot: {suggestion_one_hot}\n\n")
 
         f.write("Learning Config\n")
         f.write('-------------------\n')
@@ -91,6 +99,7 @@ def log_experiment(experiment_config, train_info=None, eval_info=None):
         f.write(f"Win: {win} ({win_percentage:.2f}%)\n")
         f.write(f"Loss: {loss} ({loss_percentage:.2f}%)\n")
         f.write(f"Draw: {draw} ({draw_percentage:.2f}%)\n")
+        f.write(f"Average Return: {win - loss / total_games}\n")
         f.write(f"Evaluation Time: {evaluation_time:.2f} seconds\n\n")
 
 

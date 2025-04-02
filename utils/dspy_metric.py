@@ -141,4 +141,4 @@ if config.validation_metric=='v1':
         GT-Database: GT_dqn_single_action_1D
     '''
     def validate_answer(label, pred, trace=None):
-        return int(label.answer) == int(pred.answer)
+        return int(label.answer[0]) == int(pred.answer)

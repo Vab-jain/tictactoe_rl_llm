@@ -8,7 +8,7 @@ class TaskContext():
         self.context = ''
         if board_representation=='1D':
             if cross_representataion=='1/-1':
-                self.context = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. You can only play on an empty cell. '0' indicates an empty cell, '1' indicates a cross, and '-1' indicates a circle."
+                self.context = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. '0' indicates an empty cell, '1' indicates a cross, and '-1' indicates a circle.",
             if cross_representataion=='X/O':
                     self.context = "You are a bot playing a game of tic-tac-toe as a Cross (X). Your task is to play the next move and specify the grid cell index where you would place your turn. '_' indicates an empty cell, 'X' indicates a cross, and 'O' indicates a circle."
         

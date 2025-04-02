@@ -99,10 +99,13 @@ def state_to_board(state):
 
 
 # Function to read a txt file into a pandas DataFrame
-def read_txt_to_dataframe(filename="GT_dqn_top3_actions_1D.txt", isAnswerList=False):
+def read_txt_to_dataframe(filename, available_actions=True):
     # Read the tab-separated file into a DataFrame
     # Read the file as a DataFrame
-    df = pd.read_csv(filename, sep="\t", header=None, names=["board_str", "actions"], dtype=str)
+    if available_actions:
+        df = pd.read_csv(filename, sep="\t", header=None, names=["board_str", "available_actions", "actions"], dtype=str)
+    else:
+        df = pd.read_csv(filename, sep="\t", header=None, names=["board_str", "actions"], dtype=str)
 
     # Drop any NaN rows (in case of missing values)
     df.dropna(subset=["actions"], inplace=True)
@@ -111,6 +114,9 @@ def read_txt_to_dataframe(filename="GT_dqn_top3_actions_1D.txt", isAnswerList=Fa
     df["actions"] = df["actions"].astype(str).str.strip("[]").str.split()
 
     # Convert actions to a list of integers/float
-    df["actions"] = df["actions"].apply(lambda x: [float(i) for i in x])
+    df["actions"] = df["actions"].apply(lambda x: [int(i) for i in x])
+
+    # take the first element of the list
+    df["actions"] = df["actions"].apply(lambda x: x[0])    
 
     return df
