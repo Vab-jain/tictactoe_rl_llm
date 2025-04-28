@@ -87,6 +87,3 @@ def update_config(board_representation=None, cross_representation=None, task_id=
         globals()['task_decription'] = task_prompts[task_id]
     if prompting_method is not None:
         globals()['prompting_method'] = prompting_method
-
-
-GROQ_API_KEY = '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'
